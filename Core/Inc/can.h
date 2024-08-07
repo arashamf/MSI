@@ -35,22 +35,22 @@ extern "C" {
 extern CAN_HandleTypeDef hcan;
 
 /* USER CODE BEGIN Private defines */
-#define MODULE_TYPE_MKIP                             0x15	// Код типа модуля - МКИП
-#define MSG_TYPE_A0                                  0x000 // 000000
-#define MSG_TYPE_A1                                  0x001 // 000001
-#define MSG_TYPE_A2                                  0x002 // 000010
-#define MSG_TYPE_A3                                  0x003 // 000011
-#define MSG_TYPE_B                                   0x008 // 001000
-#define MSG_TYPE_C                                   0x010 // 010000
-#define MSG_TYPE_D                                   0x020 // 100000
-
 #define MAKE_FRAME_ID( msg_type_id, board_addr) ((((uint32_t)msg_type_id) << 5) | (board_addr))
+#define GET_MODULE_ADDR( frame_id) ((frame_id) & 0x1F) //получение адреса модуля
+#define GET_MSG_TYPE( frame_id) (((frame_id) >> 5) & 0x3F) //получение типа сообщения
+
+#define MAKE_MSG_DATA0(module_id, data_type) ( (module_id << 3 ) | data_type)
+#define GET_MODULE_ID(data0) (((data0) >> 3)  & 0x1F) //получение типа модуля-отправителя
+#define GET_TYPE_DATA(data0) ((data0) & 0x07) //получение кода вида данных
 /* USER CODE END Private defines */
 
 void MX_CAN_Init(void);
 
 /* USER CODE BEGIN Prototypes */
 uint32_t Send_Message_C2 (void);
+
+extern MESSAGE_A_t MESSAGE_A;
+extern uint8_t CAN_flag_RX;
 /* USER CODE END Prototypes */
 
 #ifdef __cplusplus

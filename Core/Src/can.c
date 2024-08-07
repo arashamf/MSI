@@ -23,6 +23,7 @@
 /* USER CODE BEGIN 0 */
 #include "typedef.h"
 #include "gpio.h"
+#include "protocol.h"
 
 #define CAN_OK 			0
 #define CAN_ERROR 	1
@@ -36,13 +37,16 @@ static uint32_t CAN1_Send_Message (CAN_TxHeaderTypeDef * , uint8_t * );
 static CAN_TxHeaderTypeDef CAN_TxHeader; //структура для отправки кадров CAN1 
 static CAN_RxHeaderTypeDef CAN_RxHeader; //структура для приёма кадров CAN1
 
-static CAN_RX_msg CAN1_RX; //структура для принятых данных CAN1
-static CAN_MSG_TYPE_C can_tx_msg = {0, 0}; //объявление структуры для отправки данных сообщения типа С2
-	
-static uint32_t ID_C2 = 0; //CAN заголовок сообщения типа С2
+//static CAN_RX_msg CAN1_RX; //структура для принятых данных CAN1
+static MESSAGE_C2_t MESSAGE_C2 = {0}; //объявление структуры для отправки данных сообщения типа С2
+MESSAGE_A_t MESSAGE_A = {0};
+
+uint8_t CAN_flag_RX = RX_NONE;
+static uint32_t ID_C2 = 0; 					//CAN заголовок сообщения типа С2
 static uint32_t ModuleAddress = 0;	// адрес в кроссе
 
-CAN_HandleTypeDef hcan;
+static uint8_t * buf_RX = MESSAGE_A.RAW;
+//uint8_t numb = sizeof(buf_RX)/sizeof(buf_RX[0]);
 /* USER CODE END 0 */
 
 CAN_HandleTypeDef hcan;
@@ -77,8 +81,7 @@ void MX_CAN_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN CAN_Init 2 */
-	//ModuleAddress = Get_Module_Address(); //получение адреса в кросс-плате
-	ModuleAddress = 0x03;
+	ModuleAddress = Get_Module_Address(); //получение адреса в кросс-плате
 	ID_C2 = MAKE_FRAME_ID(MSG_TYPE_C, (uint8_t)ModuleAddress); //формирование и сохранение ID CAN-сообщения
 	
 	//---------------------------------------настройка фильтра для FIFO0--------------------------------------//
@@ -204,11 +207,19 @@ void HAL_CAN_MspDeInit(CAN_HandleTypeDef* canHandle)
 //--------------------------------------коллбэк для буфера приёма FIFO №0--------------------------------------//
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) 
 {
-	if(HAL_CAN_GetRxMessage (hcan, CAN_RX_FIFO0, &CAN_RxHeader, CAN1_RX.RxData) == HAL_OK) //если пришло прерывание получения пакета в буфер FIFO0 CAN0
+	if(HAL_CAN_GetRxMessage (hcan, CAN_RX_FIFO0, &CAN_RxHeader, buf_RX) == HAL_OK) //если пришло прерывание получения пакета в буфер FIFO0 CAN0
 	{
-		CAN1_RX.flag_RX = RX_UNKNOWN; //установка статуса приёма CAN: принято неиндентифицированное сообщение 
-		#ifdef __USE_DBG
-			printf ((char *)"FIFO0_id=%x,msg=%x_%x,my_id=%x\r\n", CAN_RxHeader.StdId, CAN1_RX.RxData[0], CAN1_RX.RxData[1], ID_C2);;
+		CAN_flag_RX = RX_UNKNOWN; //установка статуса приёма CAN: принято неиндентифицированное сообщение 
+		#ifdef __USE_DBG		
+		if ((GET_MSG_TYPE(CAN_RxHeader.StdId) == MSG_TYPE_A1) && (MESSAGE_A.Type1.data_type == MSG_A_DATA_TYPE_TIME1))
+		{
+			printf ((char *)"FIFO0_id=%u,t0=%u,t1=%u,t2=%u,t3=%u\r\n", CAN_RxHeader.StdId, MESSAGE_A.Type1.time2k_0,
+			MESSAGE_A.Type1.time2k_1,MESSAGE_A.Type1.time2k_2,MESSAGE_A.Type1.time2k_3); 
+			printf ((char *)"FIFO0_id=%u,time=%u\r\n", CAN_RxHeader.StdId, MESSAGE_A.Type1.time2k);
+			printf ((char *)"0b=%u,1b=%u,2b=%u,3b=%u,4b=%u,5b=%u,6b=%u,7b=%u\r\n", MESSAGE_A.RAW[0], MESSAGE_A.RAW[1],  
+			MESSAGE_A.RAW[2],MESSAGE_A.RAW[3],MESSAGE_A.RAW[4],MESSAGE_A.RAW[5],MESSAGE_A.RAW[6],MESSAGE_A.RAW[7]);
+			CAN_flag_RX = RX_A1;
+		}
 		#endif
 	}	
 }
@@ -226,12 +237,17 @@ void HAL_CAN_RxFifo0FullCallback(CAN_HandleTypeDef *hcan)
 //--------------------------------------коллбэк для буфера приёма FIFO №1--------------------------------------//
 void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan) 
 {
-	if(HAL_CAN_GetRxMessage (hcan, CAN_RX_FIFO1, &CAN_RxHeader, CAN1_RX.RxData) == HAL_OK) //если пришло прерывание получения пакета в буфер FIFO0 CAN0
+	if(HAL_CAN_GetRxMessage (hcan, CAN_RX_FIFO1, &CAN_RxHeader, buf_RX) == HAL_OK) //если пришло прерывание получения пакета в буфер FIFO0 CAN0
 	{
-		CAN1_RX.flag_RX = RX_UNKNOWN; //установка статуса приёма CAN: принято неиндентифицированное сообщение 
-		#ifdef __USE_DBG
-			printf ((char *)"FIFO1_id=%x,msg=%x_%x,my_id=%x\r\n", CAN_RxHeader.StdId, CAN1_RX.RxData[0], CAN1_RX.RxData[1], ID_C2);;
-		#endif
+		CAN_flag_RX = RX_UNKNOWN; //установка статуса приёма CAN: принято неиндентифицированное сообщение 
+		if ((GET_MSG_TYPE(CAN_RxHeader.StdId) == MSG_TYPE_A1) && (MESSAGE_A.Type1.data_type==MSG_A_DATA_TYPE_TIME1))
+		{	
+			//printf ((char *)"FIFO1_id=%u,t0=%u,t1=%u,t2=%u,t3=%u\r\n", CAN_RxHeader.StdId, MESSAGE_A.Type1.time2k_0,
+			//MESSAGE_A.Type1.time2k_1,MESSAGE_A.Type1.time2k_2,MESSAGE_A.Type1.time2k_3); 
+			printf ((char *)"0b=%u,1b=%u,2b=%u,3b=%u,4b=%u,5b=%u,6b=%u,7b=%u\r\n", MESSAGE_A.RAW[0], MESSAGE_A.RAW[1],  
+			MESSAGE_A.RAW[2],MESSAGE_A.RAW[3],MESSAGE_A.RAW[4],MESSAGE_A.RAW[5],MESSAGE_A.RAW[6],MESSAGE_A.RAW[7]);
+			CAN_flag_RX = RX_A1;
+		}
 	}	
 }
 
@@ -269,19 +285,18 @@ uint32_t Send_Message_C2 (void)
 	uint32_t errorcode; //код ошибки CAN
 	
 	//my_can_msg = {0, 0};
-	can_tx_msg.data_type = 0; //младшие 3 бита 1 байта сообщения С2 равны 0
-	can_tx_msg.module_type = MODULE_TYPE_MKIP; //запись в первый байт сообщения типа модуля-отправителя - МКИП (0х15)
-	can_tx_msg.state = g_MyFlags.UPS_state; //запись во второй байт статуса UPSa
+	MESSAGE_C2.data_type = 0; //младшие 3 бита 1 байта сообщения С2 равны 0
+	MESSAGE_C2.module_type = MODULE_TYPE_MKIP; //запись в первый байт сообщения типа модуля-отправителя - МКИП (0х15)
 	
 	//формирование CAN - заголовка
-	CAN_TxHeader.StdId = ID_C2; //ID - стандартный заголовок 
+	CAN_TxHeader.StdId = ID_C2; //ID - стандартный заголовок, тип сообщения С2
 	CAN_TxHeader.ExtId = 0;
 	CAN_TxHeader.RTR = CAN_RTR_DATA; //тип сообщения (CAN_RTR_Data - передача данных)
 	CAN_TxHeader.IDE = CAN_ID_STD;   //формат кадра Standard
 	CAN_TxHeader.DLC = 8; //количество байт в сообщении
 	CAN_TxHeader.TransmitGlobalTime = 0;
 	
-	return (errorcode = CAN1_Send_Message (&CAN_TxHeader, can_tx_msg.bytes)); //отправка сообщения С2
+	return (errorcode = CAN1_Send_Message (&CAN_TxHeader, MESSAGE_C2.bytes)); //отправка сообщения С2
 }
 
 //---------------------------------------ф-я отправки сообщения по CAN1---------------------------------------//
@@ -310,8 +325,7 @@ static uint32_t CAN1_Send_Message (CAN_TxHeaderTypeDef * TxHeader, uint8_t * CAN
 			else
 				{return (errorcode = HAL_BUSY);} 
 		}
-	}
-	
+	}	
 	//Добавление сообщений в свободный Mailbox и активация запроса на передачу  
 	return (errorcode = HAL_CAN_AddTxMessage(&hcan, TxHeader, CAN_TxData, &TxMailbox)); 
 }

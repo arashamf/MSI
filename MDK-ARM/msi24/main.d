@@ -41,4 +41,6 @@ msi24/main.o: ..\Core\Src\main.c ..\Core\Inc\main.h \
   C:\Keil_v5\ARM\ARMCLANG\Bin\..\include\string.h \
   C:\Keil_v5\ARM\ARMCLANG\Bin\..\include\stdbool.h ..\Core\Inc\typedef.h \
   ..\Core\Inc\main.h ..\Core\Inc\can.h ..\Core\Inc\tim.h \
-  ..\Core\Inc\gpio.h
+  ..\Core\Inc\gpio.h ..\Time64\time64.h \
+  C:\Keil_v5\ARM\ARMCLANG\Bin\..\include\time.h \
+  ..\Time64\time64_config.h

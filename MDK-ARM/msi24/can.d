@@ -40,4 +40,4 @@ msi24/can.o: ..\Core\Src\can.c ..\Core\Inc\can.h ..\Core\Inc\main.h \
   C:\Keil_v5\ARM\ARMCLANG\Bin\..\include\stdlib.h \
   C:\Keil_v5\ARM\ARMCLANG\Bin\..\include\string.h \
   C:\Keil_v5\ARM\ARMCLANG\Bin\..\include\stdbool.h ..\Core\Inc\typedef.h \
-  ..\Core\Inc\typedef.h ..\Core\Inc\gpio.h
+  ..\Core\Inc\typedef.h ..\Core\Inc\gpio.h ..\Core\Inc\protocol.h

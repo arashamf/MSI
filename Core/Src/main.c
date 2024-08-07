@@ -24,7 +24,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "time64.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -50,14 +50,16 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-static uint32_t MSI24ModuleAddr = 0;	// адрес в кроссе
 TMyFlags g_MyFlags;  //инициализация битового поля со статусами
+
+uint64_t UNIX_Time64 = 0;
+struct TM TimeStamp; //структура с временем из time54.h
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-
+uint32_t calc_time (MESSAGE_A_t * );
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -127,9 +129,7 @@ int main(void)
 	LED_GREEN(0);
 	LED_RED(1);
 	
-	HAL_Delay(1000);
-	
-	MSI24ModuleAddr = Get_Module_Address();
+	HAL_Delay(500);
 	
   /* USER CODE END 2 */
 
@@ -145,10 +145,20 @@ int main(void)
 		TOOGLE_RED_LED();
 	
 		#ifdef __USE_DBG
-			printf ("status_CAN_TX=%u\r\n", Send_Message_C2 ());
+		for (uint8_t count = 0; count < 100; count++)
+		{
+			if (CAN_flag_RX == RX_A1)
+			{
+			//	UNIX_Time64 = (calc_time (&MESSAGE_A)) + 946684800;
+			//	printf ("timeUNIX=%llu\r\n", UNIX_Time64);
+				printf ("time=%u\r\n", calc_time (&MESSAGE_A));
+				CAN_flag_RX = RX_NONE;
+			}
+			HAL_Delay(5);
+		}
 		#endif
 		
-		HAL_Delay(500);
+	//	HAL_Delay(500);
   }
   /* USER CODE END 3 */
 }
@@ -192,6 +202,12 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+uint32_t calc_time (MESSAGE_A_t * ptr)
+{
+	uint32_t time2k = 0;	
+	time2k = ((ptr->Type1.time2k_0 << 0) |  (ptr->Type1.time2k_1 << 8) | (ptr->Type1.time2k_2 << 16) |  (ptr->Type1.time2k_3 << 24));
+	return time2k;
+}
 
 /* USER CODE END 4 */
 
